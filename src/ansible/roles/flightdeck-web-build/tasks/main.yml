@@ -1,0 +1,133 @@
+---
+- name: Do base configuration
+  include_role:
+    name: "ten7.flightdeck_base"
+- name: Install needed software
+  apk:
+    name: "{{ _pkgs | join(',') }}"
+    state: present
+    update_cache: yes
+  vars:
+    _pkgs:
+      - "apache2"
+      - "apache2-proxy"
+      - "libcap"
+      - "zlib"
+      - "php84-apache2"
+      - "php84"
+      - "git"
+      - "patch"
+      - "curl"
+      - "go-task"
+      - "php84-bcmath"
+      - "php84-ctype"
+      - "php84-curl"
+      - "php84-dom"
+      - "php84-fileinfo"
+      - "php84-gd"
+      - "php84-iconv"
+      - "php84-intl"
+      - "php84-ldap"
+      - "php84-mbstring"
+      - "php84-pecl-memcached"
+      - "php84-mysqli"
+      - "php84-mysqlnd"
+      - "php84-opcache"
+      - "php84-openssl"
+      - "php84-pecl-apcu"
+      - "php84-sqlite3"
+      - "php84-pdo"
+      - "php84-pdo_mysql"
+      - "php84-pdo_sqlite"
+      - "php84-phar"
+      - "php84-soap"
+      - "php84-session"
+      - "php84-simplexml"
+      - "php84-sodium"
+      - "php84-tokenizer"
+      - "php84-xdebug"
+      - "php84-exif"
+      - "php84-xml"
+      - "php84-xmlreader"
+      - "php84-xmlwriter"
+      - "php84-zip"
+      - "php84-zlib"
+      - "py3-mysqlclient"
+      - "composer"
+      - "mariadb-client"
+      - "rsync"
+      - "openssh-client"
+  notify:
+    - clear caches
+- name: Add global php symlink
+  file:
+    src: "/usr/bin/php84"
+    dest: "/usr/local/bin/php"
+    state: link
+    force: yes
+    follow: no
+- name: Add global go-task symlink
+  file:
+    src: "/usr/bin/go-task"
+    dest: "/usr/local/bin/task"
+    state: link
+    force: yes
+    follow: no
+- name: Force Composer to be ran with PHP 8.4
+  lineinfile:
+    path: "/usr/bin/composer"
+    regexp: '^/usr/bin/php8'
+    line: '/usr/bin/php84 /usr/bin/composer.phar $@'
+- name: Ensure key directories are owned by the web user
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner:  "app"
+    group:  "app"
+    mode: "u=rwx,g=rwx,o=r"
+    recurse: yes
+  loop:
+    - "/etc/apache2"
+    - "/etc/ssl/apache2"
+    - "/etc/apache2/sites.d"
+    - "/etc/php84"
+    - "/run/apache2"
+    - "/var/log/apache2"
+    - "/var/www"
+    - "/srv/html"
+- name: Link logs files to stdout for the Docker log collector
+  file:
+    src: "{{ item }}"
+    dest: "/dev/stdout"
+    state: link
+    force: yes
+    follow: no
+  loop:
+    - "/var/log/apache2/access.log"
+    - "/var/log/apache2/000_default-access_log"
+    - "/var/log/apache2/000_default_ssl-access_log"
+- name: Link logs files to stderr for the Docker log collector
+  file:
+    src: "{{ item }}"
+    dest: "/dev/stderr"
+    state: link
+    force: yes
+    follow: no
+  loop:
+    - "/var/log/apache2/error.log"
+    - "/var/log/apache2/000_default-error_log"
+    - "/var/log/apache2/000_default_ssl-error_log"
+- name: Template default index.html
+  template:
+    src: "templates/index.html"
+    dest: "/srv/html/index.html"
+    owner:  "app"
+    group:  "app"
+    mode: "u=rw,g=r,o=r"
+- name: Template my.cnf to disable SSL
+  template:
+    src: "templates/my.cnf"
+    dest: "/etc/my.cnf"
+    owner:  "root"
+    group:  "root"
+    mode: "u=rw,g=r,o=r"
